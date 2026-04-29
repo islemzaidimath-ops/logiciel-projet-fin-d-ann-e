@@ -1,102 +1,84 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
-# --- 1. Saisie des données de ventes ---
-print("--- Saisie des données de ventes ---")
-nb_produits = int(input("Combien de produits voulez-vous saisir ? "))
+# --- 1. GÉNÉRATION OU SAISIE DES DONNÉES ---
+print("--- Système d'Analyse de Ventes (Scalable) ---")
+mode = input("Voulez-vous (1) Saisir manuellement ou (2) Simuler X lignes ? ")
 
-liste_donnees = []
+if mode == "1":
+    nb_produits = int(input("Combien de produits ? "))
+    liste_donnees = []
+    for i in range(nb_produits):
+        print(f"\nProduit n°{i+1}:")
+        liste_donnees.append({
+            'ID': input("ID : "),
+            'Prix': float(input("Prix (TND) : ")),
+            'Quantite': int(input("Quantité : ")),
+            'Remise': float(input("Remise (%) : "))
+        })
+    df = pd.DataFrame(liste_donnees)
+else:
+    # Simulation pour 5000 lignes ou plus
+    n = int(input("Combien de lignes voulez-vous générer (ex: 5000) ? "))
+    data = {
+        'ID': [f"P_{i}" for i in range(1, n + 1)],
+        'Prix': np.random.uniform(10, 500, size=n).round(2),
+        'Quantite': np.random.randint(1, 100, size=n),
+        'Remise': np.random.choice([0, 5, 10, 15, 20], size=n)
+    }
+    df = pd.DataFrame(data)
 
-for i in range(nb_produits):
-    print(f"\nProduit n°{i+1}:")
-    id_p = input("ID du produit : ")
-    prix = float(input("Prix unitaire (TND) : "))
-    quantite = int(input("Quantité : "))
-    remise = float(input("Remise accordée (%) : "))
-    
-    # Ajout à la liste de données
-    liste_donnees.append({
-        'ID': id_p,
-        'Prix': prix,
-        'Quantite': quantite,
-        'Remise': remise
-    })
-
-# Création du tableau (DataFrame) à partir de tes entrées
-df = pd.DataFrame(liste_donnees)
-
-# --- 2. Calculs des indicateurs financiers ---
-# Calcul du Chiffre d'Affaires Brut (Prix unitaire * Quantité)
+# --- 2. CALCULS FINANCIERS (VECTEURS) ---
 df["CA_Brut"] = df["Prix"] * df["Quantite"]
-
-# Calcul du CA Net après application de la remise (Remise en %)
 df["CA_Net"] = df["CA_Brut"] * (1 - df["Remise"] / 100)
+df["TVA"] = df["CA_Net"] * 0.20 # TVA 20%
 
-# Calcul de la TVA (fixée à 20% ici)
-df["TVA"] = df["CA_Net"] * 0.2
+# --- 3. PRÉPARATION DES DONNÉES POUR LES GRAPHES ---
+# Si on a beaucoup de lignes, on prend le Top 10 pour la clarté
+if len(df) > 15:
+    df_top = df.nlargest(10, 'CA_Net')
+    suffixe = "(Top 10)"
+else:
+    df_top = df
+    suffixe = ""
 
-# --- 3. Affichage des résultats & Export ---
-print("\n" + "="*30)
-print("TABLEAU RÉCAPITULATIF :")
-print(df)
-print("="*30)
+# --- 4. TOUS LES GRAPHIQUES ---
 
-# Somme totale du Chiffre d'Affaires Net
-ca_total = df["CA_Net"].sum()
-print(f"CA Total de l'entreprise : {ca_total:.2f} TND")
-
-# Identification du produit ayant généré le plus de CA Net
-max_produit = df.loc[df["CA_Net"].idxmax()]
-print(f"Produit le plus rentable : ID {max_produit['ID']}")
-
-# Exportation des résultats dans un fichier CSV
-df.to_csv("resultats_final.csv", index=False)
-print("\nFichier resultats_final.csv créé !")
-
-# --- 4. Visualisation des données ---
-
-# Graphique 1 : CA Net par produit
-plt.figure(figsize=(8, 5))
-plt.bar(df["ID"], df["CA_Net"])
-plt.xlabel("ID Produit")
-plt.ylabel("CA Net (TND)")
-plt.title("Chiffre d'affaires par produit")
+# Graphe 1 : CA Net par produit (Barres)
+plt.figure(figsize=(10, 5))
+plt.bar(df_top["ID"], df_top["CA_Net"], color='skyblue')
+plt.title(f"Chiffre d'Affaires Net par Produit {suffixe}")
+plt.ylabel("TND")
 plt.show()
 
-# Graphique 2 : Répartition du CA Net en pourcentage
-plt.figure(figsize=(8, 6))  
-plt.pie(df["CA_Net"], labels=df["ID"], autopct='%1.1f%%', startangle=140, colors=['#ff9999','#66b3ff','#99ff99','#ffcc99'])
-plt.title("Répartition du Chiffre d'Affaires par Produit (%)")
-plt.axis('equal')  
+# Graphe 2 : Répartition (%) (Pie Chart)
+plt.figure(figsize=(8, 8))
+plt.pie(df_top["CA_Net"], labels=df_top["ID"], autopct='%1.1f%%', startangle=140)
+plt.title(f"Répartition du CA {suffixe}")
 plt.show()
 
-# Graphique 3 : Comparaison CA Brut et CA Net
-df.plot(x="ID", y=["CA_Brut", "CA_Net"], kind="bar", figsize=(10, 5), color=['skyblue', 'teal'])
-plt.title("Comparaison du CA Brut et du CA Net après remises")
-plt.xlabel("Identifiant du Produit")
-plt.ylabel("Montant (TND)")
-plt.xticks(rotation=0)  
-plt.grid(axis='y', linestyle='--', alpha=0.6)
-plt.legend(["CA Brut", "CA Net"])
+# Graphe 3 : Comparaison Brut vs Net
+df_top.plot(x="ID", y=["CA_Brut", "CA_Net"], kind="bar", figsize=(10, 5))
+plt.title(f"Impact des Remises {suffixe}")
+plt.ylabel("TND")
 plt.show()
 
-# Graphique 4 : Analyse Remise vs Quantité vendue
-plt.figure(figsize=(8, 5))
-plt.scatter(df["Remise"], df["Quantite"], color='purple', s=100, alpha=0.7)
-plt.title("Relation entre le taux de remise et les quantités vendues")
-plt.xlabel("Taux de remise (%)")
+# Graphe 4 : Relation Remise vs Quantité (Scatter Plot)
+# Ici on peut afficher plus de points car c'est un nuage
+sample_size = min(len(df), 500) 
+df_sample = df.sample(n=sample_size)
+plt.figure(figsize=(10, 6))
+plt.scatter(df_sample["Remise"], df_sample["Quantite"], alpha=0.5, color='purple')
+plt.title(f"Analyse de Corrélation (Échantillon de {sample_size} lignes)")
+plt.xlabel("Remise (%)")
 plt.ylabel("Quantité vendue")
-plt.grid(True, which='both', linestyle='--', alpha=0.5)
-
-# Ajout d'annotations pour chaque point (ID du produit)
-for i, txt in enumerate(df["ID"]):
-    plt.annotate(txt, (df["Remise"][i], df["Quantite"][i]), xytext=(5,5), textcoords='offset points')
-
 plt.show()
 
-# Graphique 5 : Analyse de la distribution statistique (Boxplot)
-plt.figure(figsize=(6, 4))
-plt.boxplot(df["CA_Net"], patch_artist=True)
-plt.title("Distribution Statistique du CA Net")
-plt.ylabel("Valeurs (TND)")
+# Graphe 5 : Distribution Statistique (Boxplot)
+# Le boxplot est parfait pour 5000 lignes !
+plt.figure(figsize=(7, 5))
+plt.boxplot(df["CA_Net"], patch_artist=True, boxprops=dict(facecolor="lightgreen"))
+plt.title(f"Dispersion Statistique du CA Net ({len(df)} lignes)")
+plt.ylabel("TND")
 plt.show()

@@ -118,6 +118,7 @@ Après exécution, le programme :
 * **Python** : langage principal
 * **Pandas** : manipulation et analyse des données
 * **Matplotlib** : visualisation graphique
+* **NumPy**: Calculs mathématiques et génération de données aléatoires.
 
 
 ## 🚀 Améliorations apportées (Version Pro)
